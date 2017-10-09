@@ -1,22 +1,18 @@
 const webdriver = require('selenium-webdriver');
-const SUPPORTED_ACTIONS = ['title'];
+const Actions = require('./Actions');
+const SUPPORTED_ACTIONS = ['title', 'elementText', 'elementExist'];
 const MAX_TIMEOUT = 500;
 
 class AssertsHandler {
 
-    static execute(driver, scenario, options) {
+    static execute(driver, scenario) {
         let promised = null;
         if (SUPPORTED_ACTIONS.includes(scenario.getMethod())) {
-            promised = this[scenario.getMethod()](driver, scenario);
+            promised = this[scenario.getMethod()].bind(this, driver, scenario);
         } else {
-            console.warn('Unsupported method', scenario);
             promised = Promise.resolve(true);
         }
-        return promised.catch(() => {
-            options.catchScreenFile && this.screenshot(driver, {
-                value: options.catchScreenFile
-            } );
-        });
+        return promised.then((result) => result ? null : Promise.reject(scenario));
     }
 
     /**
@@ -25,12 +21,22 @@ class AssertsHandler {
      * @param {ScenarioObject} scenario - object of the scenario to execute
      * @return {promise.Promise.<void>}
      */
-    static title(driver, scenario){
-        return driver.wait(function() {
-            return driver.getTitle().then(function(title) {
+    static title(driver, scenario) {
+        return driver.wait(function () {
+            return driver.getTitle().then(function (title) {
                 return scenario.getValue() === title;
             });
         }, MAX_TIMEOUT);
+    }
+
+    static elementText(driver, scenario) {
+        return Actions.getElement(driver, scenario.getSelector())
+            .then((element) => element.text() == scenario.getText());
+    }
+
+    static elementExist(driver, scenario) {
+        return Actions.getElement(driver, scenario.getSelector())
+            .then((element) => !!element);
     }
 
 }

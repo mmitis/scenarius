@@ -2,7 +2,7 @@ const webdriver = require('selenium-webdriver');
 const fs = require('fs');
 
 
-const SUPPORTED_ACTIONS = ['type', 'click', 'wait', 'switchToFrame', 'changeTab', 'screenshot'];
+const SUPPORTED_ACTIONS = ['type', 'click', 'wait', 'switchToFrame', 'clearText', 'changeTab', 'screenshot', 'switchToMain'];
 
 class ActionHandler {
 
@@ -12,10 +12,10 @@ class ActionHandler {
      * @param {ScenarioObject} scenario - object of the scenario to execute
      * @return {*|Promise.<T>|Thenable.<R>}
      */
-    static execute(driver, scenario, reporter) {
+    static execute(driver, scenario, window) {
         let promised = null;
         if (SUPPORTED_ACTIONS.includes(scenario.getMethod())) {
-            promised = this[scenario.getMethod()].bind(this, driver, scenario);
+            promised = this[scenario.getMethod()].bind(this, driver, scenario, window);
         } else {
             promised = Promise.resolve(true);
         }
@@ -45,13 +45,13 @@ class ActionHandler {
     }
 
     /**
-     * Changes the window to the next opened tab
-     * @param driver
-     * @param scenario
+     * Switch context into the main window
+     * @param {WebDriver} driver - WebDriver object
+     * @param {ScenarioObject} scenario - object of the scenario to execute
+     * @return {promise.Promise.<void>}
      */
-    static changeTab(driver, scenario) {
-        const windows = driver.getWindowHandles();
-        console.log(windows);
+    static switchToMain(driver, scenario, window) {
+        return driver.switchTo().window(window);
     }
 
     /**
@@ -81,6 +81,19 @@ class ActionHandler {
     }
 
     /**
+     * Clear text data in selected input
+     * @param {WebDriver} driver - WebDriver object
+     * @param {ScenarioObject} scenario - object of the scenario to execute
+     * @return {Promise}
+     */
+    static clearText(driver, scenario) {
+        return this.getElement(driver, scenario.getSelector()).then((element) => {
+            element.clear();
+            return element;
+        });
+    }
+
+    /**
      * Helper to get element by Css Selector
      * @param {WebDriver} driver - WebDriver object
      * @param {String} selector - CSS selector
@@ -103,7 +116,6 @@ class ActionHandler {
      * @return {promise.Promise.<void>|promise.Promise.<T>|WebElementPromise|ManagedPromise.<T>|*}
      */
     static getWaitElement(driver, selector, time = 1000) {
-        console.log('Waits for:', selector);
         return driver.wait(webdriver.until.elementLocated(webdriver.By.css(selector)), time);
     }
 

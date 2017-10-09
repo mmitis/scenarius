@@ -9,6 +9,7 @@ class Scenarius {
     /**
      *
      * @param params
+     * @param reporter
      */
     constructor(params, reporter = DefaultReporter) {
         const defaults = {
@@ -31,21 +32,28 @@ class Scenarius {
 
     executeSuite(url, suite) {
         let suiteId = this.generateSuiteId();
-        console.log('Scenario executed!');
-        let promised = this.server.get(url).then(() => {
-            this.reporter.reportStart(suiteId, url, suite);
-        });
+        // Save reference to the main window;
+        let mainWindow = this.server.getWindowHandle();
+        let promised = this.server.get(url).then(() => this.reporter.reportStart(suiteId, url, suite));
         suite.forEach((scenario) => {
             let scenarioItem = new ScenarioObject(scenario);
             if (this.methods[scenarioItem.getType().toUpperCase()]) {
-                promised = promised.then(this.methods[scenarioItem.getType().toUpperCase()].execute(this.server, scenarioItem));
+                promised = promised
+                    .then(this.methods[scenarioItem.getType().toUpperCase()].execute(this.server, scenarioItem, mainWindow))
+                    .then(() => this.reporter.reportAction(suiteId, scenarioItem));
             } else {
                 promised = promised.then(Promise.reject(new Error('Invalid type of the method')));
             }
         });
-        return promised.then(() => {
-            console.log('Finished!');
+
+        promised.then(() => {
+            //this.closeServer();
+        }).catch((error) => {
+            this.closeServer();
+            this.reporter.reportError(suiteId, error);
+            throw new Error('Test suite failed failed.')
         });
+        return promised;
     }
 
     closeServer() {
